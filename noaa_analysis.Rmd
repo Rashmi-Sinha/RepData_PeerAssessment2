@@ -1,15 +1,32 @@
-QUESTION HERE????
+Analysis of major storm events to human casualties and property damage
 ========================================================
 
-## NOAA Storm Database Analysis
-This report analyzes the US National Oceanic and Atmospheric Administration's (NOAA) Storm database which contains characteristics of major US storms and weather events.  This data includes location, fatalities, injuries and property damage.
+## Synopsis 
 
-Data was downloaded as part of the Coursera Reproducible Research project from https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2 on May 9, 2014. 
+< NOTE GREATLY SIMPLIFY THIS SINCE DATA IS VERY DIRTY. FOCUS ON LARGE VALUES AND MEAN VALUE OF EACH TYPES >
 
-```{r loadData, echo=TRUE}
+This report analyzes the impact of major storm events to fatalities, injuries and property damage in the United States. Our hypothesis is that different storm types may happen at different frequencies and severity and these variables have a direct relationship to property and health consequences.   To evaluate these hypotheses, we analyzed the US National Oceanic and Atmospheric Administration's (NOAA) Storm Database which tracks major storm events from the 1950 through 2011.  This US database contains characteristics of major US storms and weather events as well as estimated fatalities, injuries and property damage.
+
+Our results show that overall damage and impact to human life depends on the type of event, severity, and frequency but varied by geographic location. 
+
+< 5 more sentences at most to state results >
+
+
+The data contains information US storms including estimated values of fatalities and injuries
+
+## Data Processing
+
+From the NOAA database we loaded the critical data to perform the analysis including storm type, state, estimated fatalities, injuries, property and crop damage, date of event, dimensions (width and length), and strength/severity (such as F strength for tornados or magnitude for earthquakes).
+
+### Downloading and reading the database
+
+The NOAA database file was downloaded from the [Coursera Reproducible Research project](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) on May 9, 2014 and processed in its native bz2 format.  Due to the size of the file, only the necessary columns of data were read and processed.  The event's starting date and time was converted to just the date.  Data that was needed in numeric format was coverted to numeric values. 
+
+The file's internal format is comma delimited and a header row describes each of the columns.  
+
+```{r loadData, echo=TRUE, cache=TRUE}
 # libraries and load data
 library(ggplot2)
-
 
 datafile <- "repdata-data-StormData.csv.bz2"
 if (! file.exists(datafile)) { # download it if it does not exist
@@ -18,7 +35,7 @@ if (! file.exists(datafile)) { # download it if it does not exist
 }
 # We read the first few rows and then reset the file to only read the columns we care about
 # This is just to speed up the lenghty read and to reduce the required memory footprint
-data <- read.table(bzfile(datafile), sep=",", header = TRUE, stringsAsFactors=FALSE, nrows=10)
+data <- read.table(bzfile(datafile), sep=",", header = TRUE, na.strings="", stringsAsFactors=FALSE, nrows=10)
 
 # Now read all the data that we care about
 # Originally we had all these fields:
@@ -29,28 +46,81 @@ data <- read.table(bzfile(datafile), sep=",", header = TRUE, stringsAsFactors=FA
 #  "WFO"        "STATEOFFIC" "ZONENAMES"  "LATITUDE"   "LONGITUDE"  "LATITUDE_E" "LONGITUDE_"
 #  "REMARKS"    "REFNUM"
 # Now we just set the columns we need for our analysis to save space and time
-neededCharCols <- c("STATE", "BGN_DATE", "EVTYPE", "F", "PROPDMGEXP")
-neededNumCols <- c("LENGTH", "WIDTH", "MAG", "FATALITIES","INJURIES", "PROPDMG", "LATITUDE", "LONGITUDE")
+neededCharCols <- c("STATE", "BGN_DATE", "EVTYPE", "F", "PROPDMGEXP", "CROPDMGEXP")
+neededNumCols <- c("LENGTH", "WIDTH", "MAG", "FATALITIES","INJURIES", "PROPDMG", "CROPDMG")
 # Set the columns we want, others set to NULL to ignore
 classes <- rep("NULL", length(names(data)))
 classes[names(data) %in% neededCharCols] <- "factor" # set just the cols we want as char factors
 classes[names(data) %in% neededNumCols] <- "numeric" # set just the cols we want as numeric
-data <- read.table(bzfile(datafile), sep=",", header = TRUE, colClasses = classes, quote ='"')
-rm(classes) # just a cleanup
+data <- read.table(bzfile(datafile), sep=",", header = TRUE, na.strings="", colClasses = classes, quote ='"')
 
-# Convert the begining date and time to a native format for processing
-data$BGN_DATE <- strptime(data$BGN_DATE, format = "%m/%d/%Y %H:%M:%s")
+# Convert the begining date and time to just the date part and ignore the time and timezone
+# data$BGN_DATE <- strptime(data$BGN_DATE, format = "%m/%d/%Y %H:%M:%s")
+data$EVTDATE <- as.Date(data$BGN_DATE, "%m/%d/%Y")
+range(data$EVTDATE)
+```
+
+
+The resulting dataset has`r nrow(data)` rows of data.  There were a significant number of missing or NA values from event specfic parameters such as F-value, Property and Crop exponent values.  There were no NA or missing values from property damage, crop damage, event types, injuries, and fatailities.  
+
+```{r basicStats, echo=TRUE}
+dim(data)
+head(data)
 
 # Basic summary stats
 sapply(data, class)
 summary(data)
-sum(is.na(data))
+
+```
+
+To assess the correct financial impact of property and crop damage, values for damages required transformation using the base magnitude and the exponent fields.  Exponents were reported in 10^x, thousands (k or K), millions (m or M), billions (B), hundreds (h or H).  Exponent values of "-, +, ?" or NA were ignored and assumed to imply no multiplication (i.e. multiply by 1).
+
+```{r calcDamages, echo=TRUE}
+# Show how messy the exponents are
+unique(data$PROPDMGEXP)
+unique(data$CROPDMGEXP)
+
+
+# Let's build a table to get the real multiplier
+# expTag and mult must align with key,values
+expTag <- c(0:9, "h", "H", "k", "K", "m", "M", "b", "B", "-", "+", "?", NA)
+mult = c(10^(0:9), 10^2, 10^2, 10^3, 10^3, 10^6, 10^6, 10^9, 10^9, 1, 1, 1, 1 )
+
+# Calculate the damages to property and crops based on the multiplier.
+# Rather than merge, we will add a multiplier by matching so we don't change the original dataframe
+data$PROPDAMAGE <- data$PROPDMG * mult[match(data$PROPDMGEXP, expTag)]
+data$CROPDAMAGE <- data$CROPDMG * mult[match(data$PROPDMGEXP, expTag)]
+#merge(data, expMultiplier, by.x="CROPDMGEXP", by.y="exp", all.x=TRUE)
+
+# Add up the total damage for each observation
+data$ECONOMICDAMAGE <- data$PROPDAMAGE + data$CROPDAMAGE
 ```
 
 
 
+
+< CLEAN UP THE EVENT DATA >
+However, the event types were extremely dirty and required transformation for processing.  There were `r length(levels(data$EVTYPE))` unique types of events, many of which were duplicate or misspellings of common events such as "TSTM WIND" and "THUNDERSTORM WIND". We cleaned many of these up based on assumptions on common patterns found in the data. 
+
+```{r cleanEvents, echo=TRUE}
+length(levels(data$EVTYPE))
+
+```
+
+< ADD REGIONS? >
+
+
+< FINALLY CLEAN AND TRANSFORMED DATA -END OF PROCESSING >
+
+
+
+
+## Results
+
+< FILL IN RESULTS HERE including 99% of processing>
+
+< MAX OF 3 TABLES FOR RESULTS: economic damage, health impact >
 
 ```{r fig.width=7, fig.height=6}
 
 ```
-
