@@ -1,0 +1,56 @@
+QUESTION HERE????
+========================================================
+
+## NOAA Storm Database Analysis
+This report analyzes the US National Oceanic and Atmospheric Administration's (NOAA) Storm database which contains characteristics of major US storms and weather events.  This data includes location, fatalities, injuries and property damage.
+
+Data was downloaded as part of the Coursera Reproducible Research project from https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2 on May 9, 2014. 
+
+```{r loadData, echo=TRUE}
+# libraries and load data
+library(ggplot2)
+
+
+datafile <- "repdata-data-StormData.csv.bz2"
+if (! file.exists(datafile)) { # download it if it does not exist
+        url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+        download.file(url, datafile, mode = "wb")
+}
+# We read the first few rows and then reset the file to only read the columns we care about
+# This is just to speed up the lenghty read and to reduce the required memory footprint
+data <- read.table(bzfile(datafile), sep=",", header = TRUE, stringsAsFactors=FALSE, nrows=10)
+
+# Now read all the data that we care about
+# Originally we had all these fields:
+#  "STATE__"    "BGN_DATE"   "BGN_TIME"   "TIME_ZONE"  "COUNTY"     "COUNTYNAME" "STATE"     
+#  "EVTYPE"     "BGN_RANGE"  "BGN_AZI"    "BGN_LOCATI" "END_DATE"   "END_TIME"   "COUNTY_END"
+#  "COUNTYENDN" "END_RANGE"  "END_AZI"    "END_LOCATI" "LENGTH"     "WIDTH"      "F"         
+#  "MAG"        "FATALITIES" "INJURIES"   "PROPDMG"    "PROPDMGEXP" "CROPDMG"    "CROPDMGEXP"
+#  "WFO"        "STATEOFFIC" "ZONENAMES"  "LATITUDE"   "LONGITUDE"  "LATITUDE_E" "LONGITUDE_"
+#  "REMARKS"    "REFNUM"
+# Now we just set the columns we need for our analysis to save space and time
+neededCharCols <- c("STATE", "BGN_DATE", "EVTYPE", "F", "PROPDMGEXP")
+neededNumCols <- c("LENGTH", "WIDTH", "MAG", "FATALITIES","INJURIES", "PROPDMG", "LATITUDE", "LONGITUDE")
+# Set the columns we want, others set to NULL to ignore
+classes <- rep("NULL", length(names(data)))
+classes[names(data) %in% neededCharCols] <- "factor" # set just the cols we want as char factors
+classes[names(data) %in% neededNumCols] <- "numeric" # set just the cols we want as numeric
+data <- read.table(bzfile(datafile), sep=",", header = TRUE, colClasses = classes, quote ='"')
+rm(classes) # just a cleanup
+
+# Convert the begining date and time to a native format for processing
+data$BGN_DATE <- strptime(data$BGN_DATE, format = "%m/%d/%Y %H:%M:%s")
+
+# Basic summary stats
+sapply(data, class)
+summary(data)
+sum(is.na(data))
+```
+
+
+
+
+```{r fig.width=7, fig.height=6}
+
+```
+
