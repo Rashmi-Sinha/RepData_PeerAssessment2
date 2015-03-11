@@ -9,32 +9,26 @@ Data Processing
 ==============
 1.Load Data
 
-```{r}
-  stormData <- read.csv(bzfile("repdata-data-StormData.csv"), stringsAsFactors = FALSE, 
-                 strip.white = TRUE)
 
-```
+stormData <- read.csv(bzfile("repdata-data-StormData.csv.bz2"), stringsAsFactors = FALSE, 
+  strip.white = TRUE)
+
 
 2.Subset data to relevant fields
 
-```{r}
 stormDataSubset <- subset(stormData, select = c(STATE, EVTYPE, FATALITIES, INJURIES, 
   PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP))
-
-```
 
 
 3.Further Subset the data to only include storms which have monetary damages, injuries or fatalities.
 
-```{r}
+
 stormDataSubset <- subset(stormDataSubset, INJURIES != 0 | FATALITIES != 0 | 
   PROPDMG != 0 | CROPDMG != 0)
 
-```
 
 4.There are a lot of malformed EVTYPES values and similar types of events. While it would be best for an expert to help with this type of analysis and data cleaning I've grouped the data into a few Major categories which should be sufficient for this type of analysis. Again a lot of the data still falls out side of theses six categories.
 
-```{r}
 
 stormDataSubset$EVTYPE <- tolower(stormDataSubset$EVTYPE)
 regexWind <- "tornado|wind|gust|thunderstorm|wnd|wall cloud|funnel cloud|lightning|hail"
@@ -51,13 +45,11 @@ stormDataSubset$EVTYPE[grepl(regexWinterEvents, stormDataSubset$EVTYPE)] <- "win
 stormDataSubset$EVTYPE[grepl(regexHeatDrought, stormDataSubset$EVTYPE)] <- "heat/drought"
 stormDataSubset$EVTYPE[grepl(regexFire, stormDataSubset$EVTYPE)] <- "fire"
 
-```
-
-
 
 
 5.Aggregating injuries and fatalities over event types.
-```{r}
+
+
 
 deaths <- aggregate(FATALITIES ~ EVTYPE, stormDataSubset, sum)
 deaths <- deaths[order(deaths$FATALITIES, decreasing = TRUE), ]
@@ -68,14 +60,15 @@ injuries <- aggregate(INJURIES ~ EVTYPE, stormDataSubset, sum)
 injuries <- injuries[order(injuries$INJURIES, decreasing = TRUE), ]
 injuries <- injuries[1:6, ]  # For the six major catogories defined above 
 injuries$EVTYPE <- as.factor(injuries$EVTYPE)
-```
+
+
 
 6.Converting monetary values into numeric values for analysis Note: All not 
 standards chars such are being removed.
 
-```{r}
 
-stormDataSubset$PROPDMGEXP <- tolower(stormDataSubset$PROPDMGEXP)
+
+ stormDataSubset$PROPDMGEXP <- tolower(stormDataSubset$PROPDMGEXP)
  stormDataSubset$CROPDMGEXP <- tolower(stormDataSubset$CROPDMGEXP)
  stormDataSubset$PROPDAMAGES <- stormDataSubset$PROPDMG * sapply(stormDataSubset$PROPDMGEXP, 
      FUN = function(x) {
@@ -86,11 +79,12 @@ stormDataSubset$PROPDMGEXP <- tolower(stormDataSubset$PROPDMGEXP)
          switch(x, k = 1000, m = 1e+06, b = 1e+09, 1)
      })
 
-```
+
 
 7.Combing crop and property damages and summing over event type
 
-```{r}
+
+
 
 totalDamages <- aggregate(PROPDAMAGES + CROPDAMAGES ~ EVTYPE, stormDataSubset, 
    sum)
@@ -101,31 +95,24 @@ totalDamages$EVTYPE <- as.factor(totalDamages$EVTYPE)
 names(totalDamages) <- c("EVTYPE", "COMBINEDDAMAGES")
 
 
-```
 
 Results
 ==============
 1.Health Impact - As the following plots show the wind and thunderstorms cause a the majority of weather related
 
-```{r}
+
 library(ggplot2)
-
-```
-
-```{r}
 
 print(ggplot(deaths, aes(x = EVTYPE, y = FATALITIES)) + geom_bar(stat = "identity") + 
   ggtitle("Total Fatalities Weather Event"))
   print(ggplot(injuries, aes(x = EVTYPE, y = INJURIES)) + geom_bar(stat = "identity") + 
   ggtitle("Total Injuries Weather Event"))
 
-```
+
 
 2.Economic Impact - This plot shows the economic impact of the weather events. As we can see Flooding has the largest impact while hurricanes and thunderstorms also have large economic impacts.
-```{r}
+
+
 print(ggplot(totalDamages, aes(x = EVTYPE, y = COMBINEDDAMAGES)) + geom_bar(stat = "identity") + 
   ggtitle("Total Fatalities Weather Event"))
   
-```
-
-
